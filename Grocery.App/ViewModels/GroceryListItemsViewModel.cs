@@ -5,6 +5,7 @@ using Grocery.App.Views;
 using Grocery.Core.Interfaces.Services;
 using Grocery.Core.Models;
 using System.Collections.ObjectModel;
+using System.Security.Cryptography.X509Certificates;
 using System.Text.Json;
 
 namespace Grocery.App.ViewModels
@@ -15,6 +16,9 @@ namespace Grocery.App.ViewModels
         private readonly IGroceryListItemsService _groceryListItemsService;
         private readonly IProductService _productService;
         private readonly IFileSaverService _fileSaverService;
+
+        // list voor alle producten om te filteren
+        private List<Product> _allProducts = [];
         
         public ObservableCollection<GroceryListItem> MyGroceryListItems { get; set; } = [];
         public ObservableCollection<Product> AvailableProducts { get; set; } = [];
@@ -41,10 +45,26 @@ namespace Grocery.App.ViewModels
 
         private void GetAvailableProducts()
         {
+            _allProducts.Clear();
+            _allProducts.AddRange(_productService.GetAll());
+            FilterProducts(string.Empty); // Toon alle producten initieel
+        }
+
+        //filtert de producten op naam en of ze al in de lijst zitten
+        private void FilterProducts(string searchTerm)
+        {
             AvailableProducts.Clear();
-            foreach (Product p in _productService.GetAll())
-                if (MyGroceryListItems.FirstOrDefault(g => g.ProductId == p.Id) == null  && p.Stock > 0)
-                    AvailableProducts.Add(p);
+
+            var filteredProducts = string.IsNullOrWhiteSpace(searchTerm)
+                ? _allProducts
+                : _allProducts.Where(propa => propa.Name.Contains(searchTerm, StringComparison.OrdinalIgnoreCase));
+
+            foreach (var product in filteredProducts)
+            {
+                if(MyGroceryListItems.FirstOrDefault(g => g.ProductId == product.Id) == null && product.Stock > 0)
+                    AvailableProducts.Add(product);
+            }
+
         }
 
         partial void OnGroceryListChanged(GroceryList value)
@@ -86,5 +106,12 @@ namespace Grocery.App.ViewModels
             }
         }
 
+            [RelayCommand]
+            public void Search(string searchTerm)
+            {
+                FilterProducts(searchTerm);
+            }
+        }
+
     }
-}
+
